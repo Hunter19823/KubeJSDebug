@@ -10,6 +10,10 @@ dependencies {
     modImplementation("dev.latvian.mods:kubejs:${kubejs_version}")
 }
 
+loom {
+    accessWidenerPath = file("src/main/resources/kubejs_debug.accesswidener")
+}
+
 architectury {
     common("fabric", "forge")
 }
