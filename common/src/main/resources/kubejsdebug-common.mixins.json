@@ -1,9 +1,10 @@
 {
   "required": true,
   "minVersion": "0.8",
-    "package": "pie.ilikepiefoo.kubejsdebug",
+    "package": "pie.ilikepiefoo.kubejsdebug.core",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+      "NativeFunctionMixin"
   ],
   "client": [
   ],
