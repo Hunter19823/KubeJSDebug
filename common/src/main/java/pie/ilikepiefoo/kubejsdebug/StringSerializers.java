@@ -19,7 +19,7 @@ public class StringSerializers {
         }
         String value = reformat(o, 0);
         seen.get().clear();
-        return value.replace("\n", "\n" + prefix);
+        return prefix + value.replace("\n", "\n" + prefix);
     }
 
     private static String reformat(Object o, int depth) {
