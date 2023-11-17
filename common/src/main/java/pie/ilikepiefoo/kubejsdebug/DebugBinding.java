@@ -1,20 +1,20 @@
 package pie.ilikepiefoo.kubejsdebug;
 
-import com.google.gson.ExclusionStrategy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializer;
 import dev.latvian.mods.kubejs.util.ConsoleJS;
 import dev.latvian.mods.rhino.Context;
-import dev.latvian.mods.rhino.NativeJavaMethod;
 import net.minecraft.resources.ResourceLocation;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Map;
+
+import static pie.ilikepiefoo.kubejsdebug.StringSerializers.getString;
 
 public class DebugBinding {
     private static final Logger LOG = LogManager.getLogger();
@@ -40,12 +40,6 @@ public class DebugBinding {
                                     new JsonPrimitive(src.name() + " (" + Arrays.toString(src.getClass().getEnumConstants()) + ")")
             )
             .registerTypeAdapter(
-                    NativeJavaMethod.class,
-                    (JsonSerializer<NativeJavaMethod>)
-                            (src, typeOfSrc, context) ->
-                                    new JsonPrimitive(src.getFunctionName() + src)
-            )
-            .registerTypeAdapter(
                     dev.latvian.mods.rhino.NativeFunction.class,
                     (JsonSerializer<dev.latvian.mods.rhino.NativeFunction>)
                             (src, typeOfSrc, context) -> {
@@ -64,39 +58,35 @@ public class DebugBinding {
                                 return new JsonPrimitive(sb.toString());
                             }
             )
-            .setExclusionStrategies(new ExclusionStrategy() {
-                @Override
-                public boolean shouldSkipField(com.google.gson.FieldAttributes f) {
-                    return !f.hasModifier(Modifier.PUBLIC);
-                }
-
-                @Override
-                public boolean shouldSkipClass(Class<?> clazz) {
-                    return false;
-                }
-            })
+            .registerTypeAdapter(
+                    RhinoHacks.FunctionCall.class,
+                    (JsonSerializer<RhinoHacks.FunctionCall>)
+                            (src, typeOfSrc, context) -> {
+                                JsonObject obj = new JsonObject();
+                                obj.addProperty("name", src.function_name);
+                                obj.add("parameters", context.serialize(src.parameters));
+                                obj.add("local_declarations", context.serialize(src.localDeclarations));
+                                return obj;
+                            }
+            )
             .enableComplexMapKeySerialization()
             .create();
-
+    public static String INDENT = "\t";
+    public static int MAX_PRINT_DEPTH = 10;
 
     /**
      * This function is used to list all the variables, their types and their values,
      * in the current scope.
      */
-    public void logAll() {
+    public void logAll(Object... parameters) throws ReflectiveOperationException {
         // Get the current line number and file name.
-        String prefix = String.format("[%s] [%s] ", KubeJSDebug.MOD_NAME, getScriptLine());
-        if (Context.getCurrentContext().sharedContextData.topLevelScope instanceof Map<?, ?> map) {
-            LOG.info(Context.getCurrentContext().sharedContextData.topLevelScope);
-
-            map.forEach((key, value) -> log(
-                    String.format(
-                            "%s%s: %s",
-                            prefix,
-                            key,
-                            getString(value)
-                    )
-            ));
+        String prefix = String.format("[%s] [%s] debug.logAll() -> ", KubeJSDebug.MOD_NAME, getScriptLine());
+        // Get the current scope.
+        Context context = Context.getCurrentContext();
+        logMultiline(getString(Map.entry("ScriptCallStack", RhinoHacks.getCallStack()), prefix));
+        logMultiline(getString(Map.entry("Provided Parameters", parameters), prefix));
+        if (context.sharedContextData.topLevelScope instanceof Map<?, ?> map) {
+            logMultiline(getString(Map.entry("Global Scope", map), prefix));
         }
     }
 
@@ -116,19 +106,8 @@ public class DebugBinding {
         return a;
     }
 
-    private String getString(Object o) {
-        if (o == null) {
-            return "null";
-        }
-
-        if (o instanceof String) {
-            return (String) o;
-        }
-
-        if (o instanceof Class) {
-            return ((Class<?>) o).getName();
-        }
-
-        return String.format("%s (%s)", GSON.toJson(o), o.getClass());
+    private void logMultiline(String a) {
+        ConsoleJS log = ConsoleJS.getCurrent(ConsoleJS.STARTUP);
+        Arrays.stream(a.split("\n")).forEachOrdered(log::info);
     }
 }

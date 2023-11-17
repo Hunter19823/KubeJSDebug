@@ -3,7 +3,7 @@ package pie.ilikepiefoo.kubejsdebug.core;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin(dev.latvian.mods.rhino.NativeFunction.class)
+@Mixin(value = dev.latvian.mods.rhino.NativeFunction.class, remap = false)
 public interface NativeFunctionMixin {
     @Invoker("getParamCount")
     int getParameterCount();
