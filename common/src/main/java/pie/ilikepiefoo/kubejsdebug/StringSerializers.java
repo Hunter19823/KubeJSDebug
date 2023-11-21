@@ -6,20 +6,62 @@ import dev.latvian.mods.rhino.Undefined;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 public class StringSerializers {
 
     private static final ThreadLocal<HashSet<Object>> seen = ThreadLocal.withInitial(HashSet::new);
 
 
-    public static String getString(Object o, String prefix) {
+    private static final String PACKAGE_REGEX = "([a-z_$0-9]+\\.)+";
+    private static final Pattern PACKAGE_PATTERN = Pattern.compile(PACKAGE_REGEX);
+
+    public static String getString(Object o) {
         if (o == null) {
             return "null";
         }
         String value = reformat(o, 0);
         seen.get().clear();
-        return prefix + value.replace("\n", "\n" + prefix);
+        return value;
+    }
+
+    public static String formatStack(List<RhinoHacks.FunctionCall> stack) {
+        StringJoiner joiner = new StringJoiner(" -> ");
+        AtomicInteger indent_level = new AtomicInteger();
+        stack.forEach(
+            call ->
+                joiner.add(
+                    "\n" + "  ".repeat((indent_level.getAndIncrement()))
+                        +
+                        (
+                            call.sourceLine == null ? call.function_name :
+                                String.format(
+                                    "[%s]%s(%s)",
+                                    call.sourceLine,
+                                    call.function_name,
+                                    call.parameters.keySet()
+                                        .stream()
+                                        .map(
+                                            key ->
+                                                String.format(
+                                                    "%s=%s",
+                                                    key,
+                                                    getString(
+                                                        call.parameters.get(key)
+                                                    )
+                                                )
+                                        )
+                                        .reduce((a, b) -> a + ", " + b)
+                                        .orElse("")
+                                )
+                        )
+                )
+        );
+        return joiner.toString();
     }
 
     private static String reformat(Object o, int depth) {
@@ -39,7 +81,7 @@ public class StringSerializers {
 
         if (o instanceof Number number) {
             // Represent numbers as "Value"
-            return number.toString();
+            return number + " (" + number.getClass().getSimpleName() + ")";
         }
 
         if (o instanceof Boolean bool) {
@@ -55,29 +97,29 @@ public class StringSerializers {
         if (o instanceof Enum<?> enum_) {
             // Represent enums as "Value {EnumClass={PossibleValues}}"
             return String.format(
-                    "(Enum) %s (Ordinal=%d) {%s=%s}",
-                    enum_.name(),
-                    enum_.ordinal(),
-                    enum_.getClass().toGenericString(),
-                    Arrays.toString(
-                            o.getClass().getEnumConstants()
-                    )
+                "(Enum) %s (Ordinal=%d) {%s=%s}",
+                enum_.name(),
+                enum_.ordinal(),
+                getClassNameWithoutPackages(o.getClass().toGenericString()),
+                Arrays.toString(
+                    o.getClass().getEnumConstants()
+                )
             );
         }
 
         if (o instanceof Class<?> class_) {
             // Represent classes as "Value {ClassName}"
             return String.format(
-                    "(Class) %s",
-                    class_.toGenericString()
+                "(Class) %s",
+                getClassNameWithoutPackages(class_.toGenericString())
             );
         }
 
         if (seen.get().contains(o)) {
-            return String.format("[Circular Reference] (%s) %s", o.getClass().toGenericString(), o);
+            return String.format("[Circular Reference] (%s) %s", getClassNameWithoutPackages(o.getClass().toGenericString()), o);
         }
         if (depth > DebugBinding.MAX_PRINT_DEPTH) {
-            return String.format("(%s) %s", o.getClass().toGenericString(), o);
+            return String.format("(%s) %s", getClassNameWithoutPackages(o.getClass().toGenericString()), o);
         }
 
         String newLinePrefix = "\n" + DebugBinding.INDENT.repeat(depth);
@@ -85,9 +127,9 @@ public class StringSerializers {
 
         if (o instanceof Map.Entry<?, ?> stringEntry) {
             return String.format(
-                    "%s = %s",
-                    reformat(stringEntry.getKey(), depth + 1),
-                    reformat(stringEntry.getValue(), depth + 1)
+                "%s = %s",
+                reformat(stringEntry.getKey(), depth + 1),
+                reformat(stringEntry.getValue(), depth + 1)
             );
         }
 
@@ -112,14 +154,14 @@ public class StringSerializers {
 
             StringBuilder sb = new StringBuilder();
             sb.append("(");
-            sb.append(functionCall.getClass().toGenericString());
+            sb.append(functionCall.sourceLine);
             sb.append(") ");
             sb.append(functionCall.function_name);
             sb.append(" (");
             if (!functionCall.parameters.isEmpty()) {
                 functionCall.parameters.forEach(
-                        (key, value) ->
-                                appendEntry(sb, key, value, depth + 1)
+                    (key, value) ->
+                        appendEntry(sb, key, value, depth + 1)
                 );
                 sb.append(newLinePrefix);
             }
@@ -127,11 +169,12 @@ public class StringSerializers {
             if (!functionCall.localDeclarations.isEmpty()) {
                 sb.append(" {");
                 functionCall.localDeclarations.forEach(
-                        (key, value) ->
-                                appendEntry(sb, key, value, depth + 1)
+                    (key, value) ->
+                        appendEntry(sb, key, value, depth + 1)
                 );
                 sb.append(newLinePrefix).append("}");
             }
+            return sb.toString();
         }
 
         if (o instanceof Map<?, ?> map) {
@@ -145,15 +188,15 @@ public class StringSerializers {
             // {}
             StringBuilder sb = new StringBuilder();
             sb.append("(")
-                    .append(o.getClass().toGenericString())
-                    .append(", size=")
-                    .append(map.size())
-                    .append(")");
+                .append(getClassNameWithoutPackages(o.getClass().toGenericString()))
+                .append(", size=")
+                .append(map.size())
+                .append(")");
             sb.append("{");
             if (!map.isEmpty()) {
                 map.forEach(
-                        (key, value) ->
-                                appendEntry(sb, key, value, depth + 1)
+                    (key, value) ->
+                        appendEntry(sb, key, value, depth + 1)
                 );
                 sb.append(newLinePrefix);
             }
@@ -189,21 +232,21 @@ public class StringSerializers {
             return sb.toString();
         }
 
-        return String.format("(%s) %s", o.getClass().toGenericString(), o);
+        return String.format("(%s) %s", getClassNameWithoutPackages(o.getClass().toGenericString()), o);
     }
 
     private static void appendList(Object o, int depth, StringBuilder sb, Collection<?> collection) {
         String newLinePrefix = "\n" + DebugBinding.INDENT.repeat(depth);
         sb.append("(")
-                .append(o.getClass().toGenericString())
-                .append(", size=")
-                .append(collection.size())
-                .append(")");
+            .append(getClassNameWithoutPackages(o.getClass().toGenericString()))
+            .append(", size=")
+            .append(collection.size())
+            .append(")");
         sb.append("[");
         if (!collection.isEmpty()) {
             collection.forEach(
-                    value ->
-                            appendAndIndent(sb, value, depth + 1)
+                value ->
+                    appendAndIndent(sb, value, depth + 1)
             );
             sb.append(newLinePrefix);
         }
@@ -213,19 +256,27 @@ public class StringSerializers {
     private static void appendEntry(StringBuilder sb, Object key, Object value, int depth) {
         String newLinePrefix = "\n" + DebugBinding.INDENT.repeat(depth);
         sb
-                .append(newLinePrefix)
-                .append(
-                        reformat(
-                                Map.entry(key, value),
-                                depth + 1
-                        )
-                );
+            .append(newLinePrefix)
+            .append(
+                reformat(
+                    Map.entry(key, value),
+                    depth + 1
+                )
+            );
     }
 
     private static void appendAndIndent(StringBuilder sb, Object value, int depth) {
         String newLinePrefix = "\n" + DebugBinding.INDENT.repeat(depth);
         sb
-                .append(newLinePrefix)
-                .append(reformat(value, depth + 1));
+            .append(newLinePrefix)
+            .append(reformat(value, depth + 1));
+    }
+
+    public static String getClassNameWithoutPackages(String className) {
+        var matcher = PACKAGE_PATTERN.matcher(className);
+        while (matcher.find()) {
+            className = className.replace(matcher.group(), "");
+        }
+        return className;
     }
 }

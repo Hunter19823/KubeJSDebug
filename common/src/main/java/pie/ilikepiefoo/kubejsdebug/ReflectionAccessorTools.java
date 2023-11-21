@@ -35,4 +35,14 @@ public class ReflectionAccessorTools {
             throw new ReflectiveOperationException("Unable to invoke accessor: " + accessorName + " from: " + target.getClass().getName(), e);
         }
     }
+
+    public static String getCallingMethod(int i) {
+        var callee = Thread.currentThread().getStackTrace()[i];
+        return String.format(
+            "%s.%s",
+            StringSerializers.getClassNameWithoutPackages(callee.getClassName()),
+            callee.getMethodName()
+        );
+    }
+
 }

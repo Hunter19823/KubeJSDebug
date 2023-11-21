@@ -6,6 +6,8 @@
     "mixins": [
         "BindingsEventMixin",
         "ContextAccessor",
+        "InterpreterAccessor",
+        "InterpreterMixin",
         "NativeFunctionMixin"
     ],
     "client": [
