@@ -26,7 +26,13 @@ public class RhinoHacks {
     private static final Logger LOG = LogManager.getLogger();
 
     public static List<FunctionCall> getCallStack() throws ReflectiveOperationException {
-        Object lastInterpreterFrame = ((ContextAccessor) Context.getCurrentContext()).getLastInterpreterFrame();
+        if (Context.getCurrentContext() == null) {
+            throw new RuntimeException("Context is null!");
+        }
+        if (!(Context.getCurrentContext() instanceof ContextAccessor accessor)) {
+            throw new RuntimeException("Context is not an accessor!");
+        }
+        Object lastInterpreterFrame = accessor.getLastInterpreterFrame();
         List<FunctionCall> list = new ArrayList<>();
         Object current_frame = lastInterpreterFrame;
         // Arrays.copyOfRange(( (Interpreter.CallFrame) lastInterpreterFrame ).stack, ( (Interpreter.CallFrame) lastInterpreterFrame ).savedStackTop, ( (Interpreter.CallFrame) lastInterpreterFrame ).stack.length)
@@ -72,8 +78,8 @@ public class RhinoHacks {
             for (int i = parameterCount; i < totalVariableCount; i++) {
                 var varName = mixin.getParameterOrVariableName(i);
                 var value = argsAndVars[i];
-                if (Context.getCurrentContext().sharedContextData.topLevelScope.has(varName, Context.getCurrentContext().sharedContextData.topLevelScope)) {
-                    value = Context.getCurrentContext().sharedContextData.topLevelScope.get(varName, Context.getCurrentContext().sharedContextData.topLevelScope);
+                if (accessor.getTopCallScope().has(varName, accessor.getTopCallScope())) {
+                    value = accessor.getTopCallScope().get(varName, accessor.getTopCallScope());
                 }
                 call.localDeclarations.put(varName, value);
             }
@@ -170,9 +176,15 @@ public class RhinoHacks {
 
     public static Map<String, Object> getNonBindingGlobals() throws ReflectiveOperationException {
         Context context = Context.getCurrentContext();
+        if (context == null) {
+            return new TreeMap<>();
+        }
+        if (!(context instanceof ContextAccessor accessor)) {
+            return new TreeMap<>();
+        }
         Map<String, Object> globals = new TreeMap<>();
         GLOBAL_SCOPE:
-        for (var id : context.sharedContextData.topLevelScope.getIds()) {
+        for (var id : accessor.getTopCallScope().getIds()) {
             if (!( id instanceof String name )) {
                 continue GLOBAL_SCOPE;
             }
@@ -183,9 +195,9 @@ public class RhinoHacks {
             }
             globals.put(
                 name,
-                context.sharedContextData.topLevelScope.get(
+                accessor.getTopCallScope().get(
                     name,
-                    context.sharedContextData.topLevelScope
+                    accessor.getTopCallScope()
                 )
             );
         }
