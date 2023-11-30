@@ -19,24 +19,31 @@ public class DebugBinding {
      * This function is used to list all the variables, their types and their values,
      * in the current scope.
      */
-    public void logAll(Object... parameters) throws ReflectiveOperationException {
+    public void logAll(Object... parameters) {
         // Get the current line number and file name.
         String prefix = String.format("[%s] [%s] debug.logAll(Object...): ", KubeJSDebug.MOD_NAME, getScriptLine());
-        consoleLogMultiline(getString(Map.entry("parameters", parameters)), prefix);
-        consoleLogMultiline(getString(Map.entry("Script Scope", RhinoHacks.getNonBindingGlobals())), prefix);
-        consoleLogMultiline(getString(Map.entry("ScriptCallStack", RhinoHacks.getCallStack())), prefix);
+        try {
+            consoleLogMultiline(getString(Map.entry("parameters", parameters)), prefix);
+            consoleLogMultiline(getString(Map.entry("Script Scope", RhinoHacks.getNonBindingGlobals())), prefix);
+            consoleLogMultiline(getString(Map.entry("ScriptCallStack", RhinoHacks.getCallStack())), prefix);
+        } catch (Exception e) {
+            consoleLogError(e);
+        }
+    }
+
+    private void consoleLogError(Exception e) {
+        ConsoleJS log = ConsoleJS.getCurrent(ConsoleJS.STARTUP);
+        log.error(e.getMessage(), e);
+        log.error(Arrays.stream(e.getStackTrace()).map(StackTraceElement::toString).reduce((a, b) -> a + "\n" + b).orElse(""));
     }
 
     public void log(Object... parameters) {
         String prefix = String.format("[%s] [%s] debug.log(): ", KubeJSDebug.MOD_NAME, getScriptLine());
-        consoleLogMultiline(getString(parameters), prefix);
-    }
-
-    public void trace() throws ReflectiveOperationException {
-        String prefix = String.format("[%s] [%s] trace(): ", KubeJSDebug.MOD_NAME, getScriptLine());
-        var stack = RhinoHacks.getCallStack();
-        consoleLogMultiline(getString(stack), prefix);
-        consoleLogMultiline(formatStack(stack), prefix);
+        try {
+            consoleLogMultiline(getString(parameters), prefix);
+        } catch (Exception e) {
+            consoleLogError(e);
+        }
     }
 
     /**
@@ -53,11 +60,6 @@ public class DebugBinding {
         Arrays.stream(message.split("\n")).forEachOrdered(line -> consoleLog(line, prefix));
     }
 
-    private void consoleLog(Object message, String prefix) {
-        ConsoleJS log = ConsoleJS.getCurrent(ConsoleJS.STARTUP);
-        log.info(prefix + message);
-    }
-
     private void consoleLogMultiline(String message) {
         Arrays.stream(message.split("\n")).forEachOrdered(this::consoleLog);
     }
@@ -65,5 +67,25 @@ public class DebugBinding {
     private void consoleLog(Object message) {
         ConsoleJS log = ConsoleJS.getCurrent(ConsoleJS.STARTUP);
         log.info(message);
+    }
+
+    /**
+     * This function is used to get a trace of the current call stack.
+     * It will print the file name and line number of each function call.
+     */
+    public void trace() {
+        String prefix = String.format("[%s] [%s] trace(): ", KubeJSDebug.MOD_NAME, getScriptLine());
+        try {
+            var stack = RhinoHacks.getCallStack();
+            consoleLogMultiline(getString(stack), prefix);
+            consoleLogMultiline(formatStack(stack), prefix);
+        } catch (Exception e) {
+            consoleLogError(e);
+        }
+    }
+
+    private void consoleLog(Object message, String prefix) {
+        ConsoleJS log = ConsoleJS.getCurrent(ConsoleJS.STARTUP);
+        log.info(prefix + message);
     }
 }

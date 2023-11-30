@@ -125,14 +125,6 @@ public class StringSerializers {
         String newLinePrefix = "\n" + DebugBinding.INDENT.repeat(depth);
         seen.get().add(o);
 
-        if (o instanceof Map.Entry<?, ?> stringEntry) {
-            return String.format(
-                "%s = %s",
-                reformat(stringEntry.getKey(), depth + 1),
-                reformat(stringEntry.getValue(), depth + 1)
-            );
-        }
-
         if (o instanceof RhinoHacks.FunctionCall functionCall) {
             // Represent function calls as:
             // FunctionName (
@@ -175,6 +167,14 @@ public class StringSerializers {
                 sb.append(newLinePrefix).append("}");
             }
             return sb.toString();
+        }
+
+        if (o instanceof Map.Entry<?, ?> stringEntry) {
+            return String.format(
+                "%s = %s",
+                reformat(stringEntry.getKey(), depth + 1),
+                reformat(stringEntry.getValue(), depth + 1)
+            );
         }
 
         if (o instanceof Map<?, ?> map) {
