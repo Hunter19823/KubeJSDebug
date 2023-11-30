@@ -27,6 +27,18 @@ public class DebugBinding {
         consoleLogMultiline(getString(Map.entry("ScriptCallStack", RhinoHacks.getCallStack())), prefix);
     }
 
+    public void log(Object... parameters) {
+        String prefix = String.format("[%s] [%s] debug.log(): ", KubeJSDebug.MOD_NAME, getScriptLine());
+        consoleLogMultiline(getString(parameters), prefix);
+    }
+
+    public void trace() throws ReflectiveOperationException {
+        String prefix = String.format("[%s] [%s] trace(): ", KubeJSDebug.MOD_NAME, getScriptLine());
+        var stack = RhinoHacks.getCallStack();
+        consoleLogMultiline(getString(stack), prefix);
+        consoleLogMultiline(formatStack(stack), prefix);
+    }
+
     /**
      * Get the current file name and line number of the script. <br>
      * format: file:line
@@ -44,18 +56,6 @@ public class DebugBinding {
     private void consoleLog(Object message, String prefix) {
         ConsoleJS log = ConsoleJS.getCurrent(ConsoleJS.STARTUP);
         log.info(prefix + message);
-    }
-
-    public void trace() throws ReflectiveOperationException {
-        String prefix = String.format("[%s] [%s] ", KubeJSDebug.MOD_NAME, getScriptLine());
-        var stack = RhinoHacks.getCallStack();
-        consoleLogMultiline(getString(stack), prefix);
-        consoleLogMultiline(formatStack(stack), prefix);
-    }
-
-    public void log(Object... parameters) {
-        String prefix = String.format("[%s] [%s] debug.log(): ", KubeJSDebug.MOD_NAME, getScriptLine());
-        consoleLogMultiline(getString(parameters), prefix);
     }
 
     private void consoleLogMultiline(String message) {
