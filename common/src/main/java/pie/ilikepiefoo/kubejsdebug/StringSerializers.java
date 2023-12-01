@@ -231,11 +231,11 @@ public class StringSerializers {
             int i = 0;
             for (var entry : map.entrySet()) {
                 appendEntry(sb, entry.getKey(), entry.getValue(), depth + 1);
-                if (i++ >= DebugBinding.MAX_NESTED_ARRAY_LENGTH) {
+                if (i++ >= DebugBinding.MAX_NESTED_OBJECT_LENGTH) {
                     break;
                 }
             }
-            if (i >= DebugBinding.MAX_NESTED_ARRAY_LENGTH) {
+            if (i >= DebugBinding.MAX_NESTED_OBJECT_LENGTH) {
                 appendAndIndent(sb, "...", depth + 1);
             }
             sb.append(newLinePrefix);
