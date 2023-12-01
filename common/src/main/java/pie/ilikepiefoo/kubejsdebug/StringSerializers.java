@@ -1,7 +1,12 @@
 package pie.ilikepiefoo.kubejsdebug;
 
 import com.google.common.collect.Lists;
+import dev.latvian.mods.kubejs.event.EventJS;
+import dev.latvian.mods.kubejs.util.ListJS;
+import dev.latvian.mods.kubejs.util.WithAttachedData;
+import dev.latvian.mods.kubejs.util.WrappedJS;
 import dev.latvian.mods.rhino.Undefined;
+import dev.latvian.mods.rhino.util.SpecialEquality;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -125,6 +130,20 @@ public class StringSerializers {
         String newLinePrefix = "\n" + DebugBinding.INDENT.repeat(depth);
         seen.get().add(o);
 
+        if (o instanceof ListJS listJS) {
+            // Represent ListJS as:
+            // (ListJS, size=value) [
+            //     value1
+            //     value2
+            //     ...
+            // ]
+            // If the list is empty, it will be represented as:
+            // (ListJS, size=value) []
+            StringBuilder sb = new StringBuilder();
+            appendList(o, depth, sb, listJS);
+            return sb.toString();
+        }
+
         if (o instanceof RhinoHacks.FunctionCall functionCall) {
             // Represent function calls as:
             // FunctionName (
@@ -193,13 +212,33 @@ public class StringSerializers {
                 .append(map.size())
                 .append(")");
             sb.append("{");
-            if (!map.isEmpty()) {
+            if (map.isEmpty()) {
+                sb.append("}");
+                return sb.toString();
+            }
+            if (depth <= 6) {
                 map.forEach(
                     (key, value) ->
                         appendEntry(sb, key, value, depth + 1)
                 );
                 sb.append(newLinePrefix);
+                sb.append("}");
+                return sb.toString();
             }
+            // If this is not a top-level call, then this is a nested toString call.
+            // As a result we will only print the first x elements of the map.
+            // This is to prevent large maps from causing the console to lag.
+            int i = 0;
+            for (var entry : map.entrySet()) {
+                appendEntry(sb, entry.getKey(), entry.getValue(), depth + 1);
+                if (i++ >= DebugBinding.MAX_NESTED_ARRAY_LENGTH) {
+                    break;
+                }
+            }
+            if (i >= DebugBinding.MAX_NESTED_ARRAY_LENGTH) {
+                appendAndIndent(sb, "...", depth + 1);
+            }
+            sb.append(newLinePrefix);
             sb.append("}");
             return sb.toString();
         }
@@ -232,6 +271,22 @@ public class StringSerializers {
             return sb.toString();
         }
 
+        if (o instanceof EventJS || o instanceof SpecialEquality || o instanceof WithAttachedData || o instanceof WrappedJS) {
+            return String.format(
+                "(%s) %s",
+                getClassNameWithoutPackages(o.getClass().toGenericString()),
+                reformat(
+                    Map.ofEntries(
+                        Map.entry("toString", o.toString()),
+                        Map.entry("Public Fields", ReflectionAccessorTools.getPublicFields(o)),
+                        Map.entry("Public Beans", ReflectionAccessorTools.getPublicAccessors(o)),
+                        Map.entry("Public Attributes", ReflectionAccessorTools.getAllPublicAttributes(o))
+                    ),
+                    depth + 1
+                )
+            );
+        }
+
         return String.format("(%s) %s", getClassNameWithoutPackages(o.getClass().toGenericString()), o);
     }
 
@@ -243,13 +298,30 @@ public class StringSerializers {
             .append(collection.size())
             .append(")");
         sb.append("[");
-        if (!collection.isEmpty()) {
+        if (collection.isEmpty()) {
+            sb.append("]");
+            return;
+        }
+        if (depth <= 6) {
             collection.forEach(
                 value ->
                     appendAndIndent(sb, value, depth + 1)
             );
             sb.append(newLinePrefix);
+            sb.append("]");
+            return;
         }
+        // If this is not a top-level call, then this is a nested toString call.
+        // As a result we will only print the first x elements of the collection.
+        // This is to prevent large collections from causing the console to lag.
+        int i = 0;
+        for (i = 0; i < DebugBinding.MAX_NESTED_ARRAY_LENGTH && i < collection.size(); i++) {
+            appendAndIndent(sb, collection.toArray()[i], depth + 1);
+        }
+        if (i >= DebugBinding.MAX_NESTED_ARRAY_LENGTH) {
+            appendAndIndent(sb, "...", depth + 1);
+        }
+        sb.append(newLinePrefix);
         sb.append("]");
     }
 

@@ -13,7 +13,9 @@ import static pie.ilikepiefoo.kubejsdebug.StringSerializers.getString;
 public class DebugBinding {
     private static final Logger LOG = LogManager.getLogger();
     public static String INDENT = "\t";
-    public static int MAX_PRINT_DEPTH = 10;
+    public static int MAX_PRINT_DEPTH = 15;
+    public static int MAX_NESTED_ARRAY_LENGTH = 25;
+    public static int MAX_NESTED_OBJECT_LENGTH = 25;
 
     /**
      * This function is used to list all the variables, their types and their values,
