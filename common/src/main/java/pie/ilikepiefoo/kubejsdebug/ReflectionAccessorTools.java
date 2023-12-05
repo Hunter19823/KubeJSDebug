@@ -86,7 +86,7 @@ public class ReflectionAccessorTools {
                             value
                         );
                     } catch (Exception e) {
-                        LOG.error("Unable to invoke method: " + method.toGenericString(), e);
+                        // Ignore
                         return null;
                     }
                 }
@@ -112,12 +112,16 @@ public class ReflectionAccessorTools {
             ).map(
                 (field) -> {
                     try {
+                        var value = Modifier.isStatic(field.getModifiers()) ? field.get(null) : field.get(target);
+                        if (value == null) {
+                            value = "null";
+                        }
                         return Map.entry(
                             field.toGenericString(),
-                            Modifier.isStatic(field.getModifiers()) ? field.get(null) : field.get(target)
+                            value
                         );
                     } catch (Exception e) {
-                        LOG.error("Unable to retrieve field value: " + field.toGenericString(), e);
+                        // Ignore
                         return null;
                     }
                 }

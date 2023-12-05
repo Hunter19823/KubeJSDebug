@@ -1,6 +1,7 @@
 package pie.ilikepiefoo.kubejsdebug;
 
 import com.google.common.collect.Lists;
+import dev.latvian.mods.kubejs.core.AsKJS;
 import dev.latvian.mods.kubejs.event.EventJS;
 import dev.latvian.mods.kubejs.util.ListJS;
 import dev.latvian.mods.kubejs.util.WithAttachedData;
@@ -271,7 +272,13 @@ public class StringSerializers {
             return sb.toString();
         }
 
-        if (o instanceof EventJS || o instanceof SpecialEquality || o instanceof WithAttachedData || o instanceof WrappedJS) {
+        if (
+            o instanceof EventJS ||
+                o instanceof SpecialEquality ||
+                o instanceof WithAttachedData ||
+                o instanceof WrappedJS ||
+                o instanceof AsKJS
+        ) {
             return String.format(
                 "(%s) %s",
                 getClassNameWithoutPackages(o.getClass().toGenericString()),
