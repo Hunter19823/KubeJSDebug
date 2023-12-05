@@ -122,7 +122,7 @@ public class StringSerializers {
         }
 
         if (seen.get().contains(o)) {
-            return String.format("[Circular Reference] (%s) %s", getClassNameWithoutPackages(o.getClass().toGenericString()), o);
+            return String.format("[Repeated Reference] (%s) %s", getClassNameWithoutPackages(o.getClass().toGenericString()), o);
         }
         if (depth > DebugBinding.MAX_PRINT_DEPTH) {
             return String.format("(%s) %s", getClassNameWithoutPackages(o.getClass().toGenericString()), o);
@@ -273,11 +273,14 @@ public class StringSerializers {
         }
 
         if (
-            o instanceof EventJS ||
-                o instanceof SpecialEquality ||
-                o instanceof WithAttachedData ||
-                o instanceof WrappedJS ||
-                o instanceof AsKJS
+            depth <= 2 &&
+                (
+                    o instanceof EventJS ||
+                        o instanceof SpecialEquality ||
+                        o instanceof WithAttachedData ||
+                        o instanceof WrappedJS ||
+                        o instanceof AsKJS
+                )
         ) {
             return String.format(
                 "(%s) %s",
